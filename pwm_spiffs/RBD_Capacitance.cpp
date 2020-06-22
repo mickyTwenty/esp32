@@ -4,7 +4,7 @@
 // MIT License
 
 #include <Arduino.h>
-#include <RBD_Capacitance.h> // https://github.com/alextaujenis/RBD_Capacitance
+#include "RBD_Capacitance.h" // https://github.com/alextaujenis/RBD_Capacitance
 
 namespace RBD {
   Capacitance::Capacitance(int send_pin, int receive_pin) {

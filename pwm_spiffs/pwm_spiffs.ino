@@ -3,16 +3,21 @@
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
 #include "RBD_Capacitance.h"
+#include "filters.h"
 
 #include "config.h"
-
-int mode = 0;   // 0 - ana to pwm
-                // 1 - capa to pwm
 
 const int pwmpin = 14;
 const int anapin = 34;
 
-RBD::Capacitance cap_sensor(32, 4);
+RBD::Capacitance cap_sensor(2, 15);
+
+const float cutoff_freq   = 600.0;  //Cutoff frequency in Hz
+const float sampling_time = 0.00005; //Sampling time in seconds.
+IIR::ORDER  order  = IIR::ORDER::OD4; // Order (OD1 to OD4)
+
+// Low-pass filter
+Filter f(cutoff_freq, sampling_time, order);
 
 int pwm_ch = 0;
 int resolution = 1;
@@ -41,9 +46,11 @@ void onMessageReceived(String msg) {
 
   if ( msg_type == "wm00" ) {
     mode = 0;
+    saveConfig();
     webSocket.sendTXT(client_id, "am00");
   } else if ( msg_type == "wm01" ) {
     mode = 1;
+    saveConfig();
     webSocket.sendTXT(client_id, "am01");
   } else if ( msg_type == "wm10" ) {
     int new_val = msg_data.toInt();
@@ -116,7 +123,12 @@ void onWebSocketEvent(uint8_t client_num,
         Serial.println(ip.toString());
 
         client_id = client_num;
-        mode = 0;
+        //mode = 0;
+        if ( mode == 0 ) {
+          webSocket.sendTXT(client_id, "am00");
+        } else if ( mode == 1 ) {
+          webSocket.sendTXT(client_id, "am01");
+        }
 
          webSocket.sendTXT(client_num, "am50:" + make_style(min_freq));
          webSocket.sendTXT(client_num, "am51:" + make_style(max_freq));
@@ -155,7 +167,7 @@ void setup() {
   Serial.println("Starting...");
 
   // initialize EEPROM with predefined size
-  EEPROM.begin(16);
+  EEPROM.begin(20);
   
   loadConfig();
   //saveConfig();
@@ -234,13 +246,22 @@ void loop() {
     if(cap_sensor.onChange()) {
       // code only runs once per event
       capa_val = cap_sensor.getValue();
+      Serial.print("capa_val: ");
+      Serial.println(capa_val);
+      float filteredval = f.filterIn(capa_val);
+      capa_val = filteredval;
       int pwm_val = capatofreq(capa_val);
       
       ledcSetup(pwm_ch, pwm_val, resolution);
       ledcWrite(pwm_ch, 1);
-      //Serial.print("capa mode pwm_val: ");
-      //Serial.println(pwm_val);
-      webSocket.sendTXT(client_id, "am57:" + String(capa_val) + "&" + String(pwm_val));
+      Serial.print("filter_val: ");
+      Serial.println(filteredval);
+      Serial.print("capa mode pwm_val: ");
+      Serial.println(pwm_val);
+      ana_count = (ana_count+1) % 5;
+      if ( ana_count == 0 ) {
+        webSocket.sendTXT(client_id, "am57:" + String(filteredval) + "&" + String(pwm_val));
+      }
     }
   }
 

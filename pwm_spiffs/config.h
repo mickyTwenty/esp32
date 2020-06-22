@@ -17,6 +17,9 @@ unsigned long max_capa = 0;// =   4 * 1000;
 const unsigned int socket_port = 1337;
 String my_ip;
 
+int mode = 0;   // 0 - ana to pwm
+                // 1 - capa to pwm
+
 
 void EEPROM16_Write(uint8_t a, uint16_t b){
   EEPROM.write(a, lowByte(b));
@@ -64,6 +67,7 @@ void loadConfig() {
   max_freq = EEPROMReadlong(4);
   min_capa = EEPROMReadlong(8);
   max_capa = EEPROMReadlong(12);
+  mode = EEPROMReadlong(16);
   
   if ( min_freq == 0 )
     min_freq = DEFAULT_MIN_FREQ;
@@ -83,6 +87,7 @@ void saveConfig() {
   EEPROMWritelong(4, max_freq);
   EEPROMWritelong(8, min_capa);
   EEPROMWritelong(12, max_capa);
+  EEPROMWritelong(16, mode);
 
   EEPROM.commit();
 }
@@ -121,11 +126,16 @@ int anatofreq(int ana_val) {
 }
 
 int capatofreq(int capa_val) {
-  if ( capa_val < min_capa )
-    return min_freq;
+  int ret_val = 0;
+  
+  if ( capa_val < min_capa ) {
+    ret_val = min_freq;
 
-  if ( capa_val > max_capa )
-    return max_freq;
-
-  return min_freq + (max_freq - min_freq) / ((float)(max_capa - min_capa)) * (capa_val - min_capa);
+  } else if ( capa_val > max_capa ) {
+    ret_val = max_freq;
+  } else {
+    ret_val = min_freq + (max_freq - min_freq) / ((float)(max_capa - min_capa)) * (capa_val - min_capa);
+  }
+  //return ret_val;
+  return max_freq - (ret_val - min_freq);
 }

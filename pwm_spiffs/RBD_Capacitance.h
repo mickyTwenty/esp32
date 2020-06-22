@@ -21,7 +21,7 @@ namespace RBD {
     private:
       int _send_pin;
       int _receive_pin;
-      int _sample_size  = 100;       // how many readings should be taken for one sample
+      int _sample_size  = 6;       // how many readings should be taken for one sample
       int _sample_count = 0;         // how many readings have been taken for the current sample
       bool _sampling    = false;     // true if taking a sample
       bool _charging    = false;     // true if charging the pin for a reading
